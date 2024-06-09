@@ -1,112 +1,181 @@
-import Image from "next/image";
+"use client"
+import { use, useEffect, useState } from "react";
+
+class Queue<T> {
+  items: T[];
+
+  constructor() {
+    this.items = [];
+  }
+
+  // Add element to the back of the queue
+  enqueue(element: T): void {
+    this.items.push(element);
+  }
+
+  // Remove and return the front element of the queue
+  dequeue(): T | undefined {
+    if (this.isEmpty()) {
+      return undefined;
+    }
+    return this.items.shift();
+  }
+
+  // Return the front element of the queue without removing it
+  front(): T | undefined {
+    if (this.isEmpty()) {
+      return undefined;
+    }
+    return this.items[0];
+  }
+
+  // Check if the queue is empty
+  isEmpty(): boolean {
+    return this.items.length === 0;
+  }
+
+  // Get the size of the queue
+  size(): number {
+    return this.items.length;
+  }
+}
+
+
+interface winnerData {
+  player: string,
+  data: number[]
+}
 
 export default function Home() {
+  const [data, setData] = useState(new Array(9).fill(""));
+  const [playerO, setPlayerO] = useState<Queue<number>>(new Queue<number>());
+  const [playerX, setPlayerX] = useState<Queue<number>>(new Queue<number>());
+  const [lock, setLock] = useState(false);
+  const [count, setCount] = useState(0);
+  const [turn, setTurn] = useState("X");
+  const [name, setname] = useState<number>();
+  const [winner, setWinnerData] = useState<winnerData | null>();
+
+  const toggle = (e: any, index: number) => {
+    if (lock) {
+      return 0;
+    }
+    const length = playerO.size() + playerX.size();
+    if (count % 2 == 0 && data[index] == "") {
+      // e.target.innerHTML = "X";
+      setTurn("O");
+      data[index] = "X";
+      setData(data);
+      setPlayerX(prevQueue => {
+        const newQueue = new Queue<number>();
+        prevQueue.items.forEach(item => newQueue.enqueue(item));
+        newQueue.enqueue(index);
+        return newQueue;
+      });
+      setCount(count + 1);
+      if (length > 5 && playerX.front() != undefined) {
+        // @ts-ignore
+        data[playerX.front()] = "";
+        setData(data)
+        playerX.dequeue()
+      }
+    } else if (count % 2 == 1 && data[index] == "") {
+      data[index] = "O";
+      setTurn("X");
+      setPlayerO(prevQueue => {
+        const newQueue = new Queue<number>();
+        prevQueue.items.forEach(item => newQueue.enqueue(item));
+        newQueue.enqueue(index);
+        return newQueue;
+      });
+      setCount(count + 1);
+      if (length > 5 && playerO.front() != undefined) {
+        // @ts-ignore
+        data[playerO.front()] = "";
+        setData(data)
+        playerO.dequeue()
+      }
+      // if (length === 5) {
+      //   setname(playerX.front())
+      // }
+    }
+    // console.log(data, playerO.front(), playerX.front(), length, index)
+    checkWin()
+  }
+
+  useEffect(() => {
+    const length = playerO.size() + playerX.size();
+    console.log("length ", length, "playerO ", playerO.front(), "playerX ", playerX.front(), "which player turn", count % 2, data);
+
+    if (!lock) {
+      if (count % 2 == 0 && length === 6) {
+        setname(playerX.front());
+      }
+      if (count % 2 != 0 && length === 6) {
+        setname(playerO.front());
+      }
+    } else {
+      setname(undefined)
+    }
+  }, [playerO, playerX, lock])
+
+  const checkWin = () => {
+    const winningCombos = [
+      [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
+      [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
+      [0, 4, 8], [2, 4, 6] // Diagonals
+    ]
+
+    for (const combo of winningCombos) {
+      const [a, b, c] = combo;
+      if (data[a] == data[b] && data[b] == data[c] && data[c] !== "") {
+        won(data[c], combo);
+      }
+    }
+  }
+
+
+  const won = (winner: string, data: number[]) => {
+    setLock(true);
+    setWinnerData({ player: winner, data })
+  }
+
+  const reset = () => {
+    console.log(name)
+    setData(new Array(9).fill(""));
+    setLock(false);
+    setname(undefined);
+    setPlayerO(new Queue<number>());
+    setPlayerX(new Queue<number>());
+    setTurn("X");
+    setCount(0);
+    setWinnerData(null);
+  }
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:size-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+      {lock ? <div className="header">
+        Player <span className={`player${winner?.player}`} >{winner?.player}</span> Won
+      </div> : <div className="header">
+        Player <span className={`player${turn}`} >{turn}</span> Turn
+      </div>}
+      {lock && <button className="reset" onClick={reset} >Reset</button>}
+      <div className="board">
+        <div className="col">
+          <div className={`boxes ${winner?.data.includes(0) && "winner"}  ${name === 0 && "opacity"} ${data[0] == "X" ? "playerX" : "playerO"}`} onClick={(e) => { toggle(e, 0) }}>{data[0]}</div>
+          <div className={`boxes ${winner?.data.includes(1) && "winner"}  ${name === 1 && "opacity"} ${data[1] == "X" ? "playerX" : "playerO"}`} onClick={(e) => { toggle(e, 1) }}>{data[1]}</div>
+          <div className={`boxes ${winner?.data.includes(2) && "winner"}  ${name === 2 && "opacity"} ${data[2] == "X" ? "playerX" : "playerO"}`} onClick={(e) => { toggle(e, 2) }}>{data[2]}</div>
         </div>
-      </div>
-
-      <div className="relative z-[-1] flex place-items-center before:absolute before:h-[300px] before:w-full before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[480px] sm:after:w-[240px] before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:mb-0 lg:w-full lg:max-w-5xl lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-balance text-sm opacity-50">
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
+        <div className="col">
+          <div className={`boxes ${winner?.data.includes(3) && "winner"}  ${name === 3 && "opacity"} ${data[3] == "X" ? "playerX" : "playerO"}`} onClick={(e) => { toggle(e, 3) }}>{data[3]}</div>
+          <div className={`boxes ${winner?.data.includes(4) && "winner"}  ${name === 4 && "opacity"} ${data[4] == "X" ? "playerX" : "playerO"}`} onClick={(e) => { toggle(e, 4) }}>{data[4]}</div>
+          <div className={`boxes ${winner?.data.includes(5) && "winner"}  ${name === 5 && "opacity"} ${data[5] == "X" ? "playerX" : "playerO"}`} onClick={(e) => { toggle(e, 5) }}>{data[5]}</div>
+        </div>
+        <div className="col">
+          <div className={`boxes ${winner?.data.includes(6) && "winner"}  ${name === 6 && "opacity"} ${data[6] == "X" ? "playerX" : "playerO"}`} onClick={(e) => { toggle(e, 6) }}>{data[6]}</div>
+          <div className={`boxes ${winner?.data.includes(7) && "winner"}  ${name === 7 && "opacity"} ${data[7] == "X" ? "playerX" : "playerO"}`} onClick={(e) => { toggle(e, 7) }}>{data[7]}</div>
+          <div className={`boxes ${winner?.data.includes(8) && "winner"}  ${name === 8 && "opacity"} ${data[8] == "X" ? "playerX" : "playerO"}`} onClick={(e) => { toggle(e, 8) }}>{data[8]}</div>
+        </div>
       </div>
     </main>
   );
